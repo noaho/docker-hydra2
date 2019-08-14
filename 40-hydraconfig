@@ -1,0 +1,49 @@
+#!/usr/bin/with-contenv bash
+
+# If config doesn't exist yet, start hydra2 for 10 seconds to build config, then stop.
+if ! [ -f /config/nzbhydra.yml ]; then
+	#Start
+	/etc/services.d/nzbhydra2/run &
+	sleep 30
+	kill $!
+	sleep 20
+fi
+
+#Set urlbase settings
+sed -i 's/urlBase: ".*"/urlBase: "\/nzbhydra"/' /config/nzbhydra.yml
+
+while [ ! -f /sabnzbdconfig/sabnzbd.ini ]; do
+	sleep 1
+	echo "Waiting for sabnzbd config to be ready"
+done
+
+#Get SABnzbd apikey
+sabAPI=$(cat /sabnzbdconfig/sabnzbd.ini | grep -m1 "api_key = ................................" | cut -d, -f2 | grep "api_key = ................................" | cut -d ' ' -f3)
+
+echo $sabAPI
+
+#Add Sabnzbd connection
+if ! grep -q $sabAPI /config/nzbhydra.yml; then
+	yq -j '.' /config/nzbhydra.yml >temp.json
+	jq --arg sabAPI $sabAPI '.downloading.downloaders += [{"apiKey": $sabAPI,"downloadType": "NZB","enabled": true,"name": "SABnzbd","nzbAddingType": "UPLOAD","downloaderType": "SABNZBD","url": "http://sabnzbd:8080"}]' temp.json >tempoutput.json
+	yq --yaml-output '.' tempoutput.json >/config/nzbhydra.yml
+	rm temp.json
+	rm tempoutput.json
+fi
+
+while [ ! -f /jackettconfig/Jackett/ServerConfig.json ]; do
+	sleep 1
+	echo "Waiting for jackett config to be ready"
+done
+
+#Get Jackett apikey
+jackettAPI=$(jq -r .APIKey /jackettconfig/Jackett/ServerConfig.json)
+
+echo $jackettAPI
+if ! grep -q $jackettAPI /config/nzbhydra.yml; then
+	yq -j '.' /config/nzbhydra.yml >temp.json
+	jq --arg apiKey $jackettAPI '.indexers += [{"allCapsChecked": false,score: 0,"apiKey": $apiKey,"backend": "NEWZNAB","host": "https://jackett/jackett/api/v2.0/indexers/all/results/torznab","name": "Jackett/Cardigann"}]' temp.json >tempoutput.json
+	yq --yaml-output '.' tempoutput.json >/config/nzbhydra.yml
+	rm temp.json
+	rm tempoutput.json
+fi
