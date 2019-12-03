@@ -20,8 +20,6 @@ done
 #Get SABnzbd apikey
 sabAPI=$(cat /sabnzbdconfig/sabnzbd.ini | grep -m1 "api_key = ................................" | cut -d, -f2 | grep "api_key = ................................" | cut -d ' ' -f3)
 
-echo $sabAPI
-
 #Add Sabnzbd connection
 if ! grep -q $sabAPI /config/nzbhydra.yml; then
 	yq -j '.' /config/nzbhydra.yml >temp.json
@@ -42,7 +40,7 @@ jackettAPI=$(jq -r .APIKey /jackettconfig/Jackett/ServerConfig.json)
 echo $jackettAPI
 if ! grep -q $jackettAPI /config/nzbhydra.yml; then
 	yq -j '.' /config/nzbhydra.yml >temp.json
-	jq --arg apiKey $jackettAPI '.indexers += [{"allCapsChecked": false,score: 0,"apiKey": $apiKey,"backend": "NEWZNAB","host": "https://jackett/jackett/api/v2.0/indexers/all/results/torznab","name": "Jackett/Cardigann"}]' temp.json >tempoutput.json
+	jq --arg apiKey $jackettAPI '.indexers += [{"allCapsChecked": false,score: 0,"apiKey": $apiKey,"backend": "NEWZNAB","host": "http://jackett:9117/jackett/api/v2.0/indexers/all/results/torznab","name": "Jackett/Cardigann"}]' temp.json >tempoutput.json
 	yq --yaml-output '.' tempoutput.json >/config/nzbhydra.yml
 	rm temp.json
 	rm tempoutput.json
